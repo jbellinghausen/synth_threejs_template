@@ -1,4 +1,5 @@
-import { CV_NOTE_MAX, CV_NOTE_MIN, VOICE, VOICES, jackLabel } from '../../config.js';
+import { CV_NOTE_MAX, CV_NOTE_MIN, jackLabel } from '../../hardware.js';
+import { voiceById, voices } from '../toy.js';
 import { eventNote } from '../engine/conductor.js';
 import { trackerName } from '../music/theory.js';
 
@@ -13,7 +14,7 @@ export class Strip {
     this.onChange = onChange;
     this.cells = new Map(); // voice id -> { root, main, solo, led, noteEl, level, hold, note }
 
-    for (const voice of VOICES) {
+    for (const voice of voices()) {
       const root = document.createElement('div');
       root.className = `slot slot--${voice.kind}`;
 
@@ -53,7 +54,7 @@ export class Strip {
         note: null,
       });
     }
-    container.style.setProperty('--slots', String(VOICES.length));
+    container.style.setProperty('--slots', String(voices().length));
   }
 
   #toggleMute(id) {
@@ -80,7 +81,7 @@ export class Strip {
     const cell = this.cells.get(event.voice);
     if (!cell) return;
     cell.level = event.ghost ? 0.4 : 1;
-    this.showNote(event.voice, eventNote(event, VOICE[event.voice]));
+    this.showNote(event.voice, eventNote(event, voiceById(event.voice)));
   }
 
   setLfos(lfos) {

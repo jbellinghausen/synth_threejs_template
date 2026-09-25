@@ -47,11 +47,25 @@ html, body {
 }
 
 .panel__head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+/* The toy picker doubles as the title: it looks like the name, with a caret. */
 .logo {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23f4c55a'/%3E%3C/svg%3E") no-repeat right 2px center;
+  border: 0;
+  border-radius: 4px;
+  padding: 2px 18px 2px 0;
   font: 600 17px var(--font);
-  letter-spacing: 0.42em;
+  letter-spacing: 0.3em;
   color: var(--gold);
+  cursor: pointer;
+  max-width: 190px;
+  text-overflow: ellipsis;
 }
+.logo:disabled { background-image: none; cursor: default; opacity: 1; }
+.logo:focus-visible { outline: 1px solid var(--gold); }
+.logo option { background: #0a0c1a; color: var(--text); font: 13px var(--mono); letter-spacing: 0.1em; }
+.row--wrap { flex-wrap: wrap; }
 
 .row { display: flex; gap: 6px; align-items: center; }
 .row > * { flex: 1 1 auto; min-width: 0; }

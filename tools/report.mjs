@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// npm run report [-- --bars 32 --bpm 120 --seed 1 --section 0 --key 9:minor]
+// npm run report [-- --toy example --bars 32 --bpm 120 --seed 1 --section 0 --key 9:minor]
 //
 // Plays the toy's song through the real conductor and LFO bank in simulated
 // time (no Pi, no browser, no waiting) and summarises what each jack would
@@ -10,17 +10,20 @@
 // Exit code 1 if anything would be clamped or an event names an unknown
 // voice; warnings alone exit 0.
 
-import { toy } from '../src/toy.js';
 import { Conductor, eventNote } from '../src/framework/engine/conductor.js';
-import { CV_NOTE_MAX, CV_NOTE_MIN, LFO, TRANSPORT, VOICES, jackLabel, stepMsFor } from '../src/config.js';
+import { useToy } from '../src/framework/toy.js';
+import { CV_NOTE_MAX, CV_NOTE_MIN, LFO, STEPS_PER_BAR, jackLabel, stepMsFor } from '../src/hardware.js';
+import { TOYS, loadToy } from '../src/toys/index.js';
 import { trackerName } from '../src/framework/music/theory.js';
 
 const args = Object.fromEntries(
   process.argv.slice(2).join(' ').split('--').filter(Boolean).map((a) => a.trim().split(/\s+/)),
 );
+const toy = await loadToy(args.toy ?? TOYS[0].id);
+useToy(toy);
+const VOICES = toy.voices;
 const BARS = Number(args.bars ?? 32);
-const BPM = Number(args.bpm ?? TRANSPORT.BPM_DEFAULT);
-const { STEPS_PER_BAR } = TRANSPORT;
+const BPM = Number(args.bpm ?? toy.transport.BPM_DEFAULT);
 const stepMs = stepMsFor(BPM);
 const seconds = (BARS * STEPS_PER_BAR * stepMs) / 1000;
 
@@ -85,7 +88,7 @@ for (let abs = 0; abs < BARS * STEPS_PER_BAR; abs += 1) {
 // --- report -----------------------------------------------------------------------------
 const warnings = [];
 const pad = (s, n) => String(s).padEnd(n);
-console.log(`${song.constructor.name}: ${BARS} bars at ${BPM} BPM (${seconds.toFixed(1)} s)\n`);
+console.log(`${toy.name} (${toy.id}): ${BARS} bars at ${BPM} BPM (${seconds.toFixed(1)} s)\n`);
 if (timeline.length) console.log(`sections: ${timeline.map((s) => `bar ${s.bar} ${s.title}`).join(' → ')}\n`);
 
 console.log(`${pad('jack', 5)}${pad('voice', 9)}${pad('events', 8)}${pad('/bar', 6)}${pad('notes', 22)}${pad('distinct', 9)}${pad('repeats', 9)}gate`);

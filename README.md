@@ -1,8 +1,9 @@
 # synth_threejs_template
 
-A starting point for musical toys that drive the
+A project for musical **toys** that drive the
 [synth module](https://github.com/jbellinghausen/synth_module_daemon)'s 12
-CV/gate outputs from a browser, with three.js visuals.
+CV/gate outputs from a browser, with three.js visuals. One project can hold
+any number of toys; a picker in the panel switches between them.
 
 The framework handles everything that isn't the music or the graphics:
 - the connection to the Pi (reconnects, the one-client rule, ping)
@@ -10,14 +11,16 @@ The framework handles everything that isn't the music or the graphics:
 - tempo-synced LFOs on CV slots
 - mute and solo
 - tune mode
-- a control panel
+- the control panel and toy picker
 - a slot strip showing each jack's note and voltage
 - a tracker view of the current bar
 - a wiring card for patching
 - a three.js runtime with bloom, trails, adaptive resolution, and a camera that keeps your scene in frame
 
-A toy provides a **song** (what to play) and a **visual** (what to draw). The
-template ships with a small example of each, to replace.
+Each toy provides a **slot map**, a **song** (what to play) and a **visual**
+(what to draw). Two small toys are included to copy from:
+- **example** uses every optional feature;
+- **pulse** is the smallest complete toy.
 
 **Building a toy with an AI agent?** Point it at [AGENTS.md](AGENTS.md), the
 operating manual: rules, workflow, contracts, verification and known pitfalls.
@@ -26,60 +29,74 @@ fill-in prompt is in [docs/new-toy-prompt.md](docs/new-toy-prompt.md).
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm test         # config, your song's events, engine, camera framing; no browser needed
-npm run report   # simulate the song: per-jack notes, volts, repeats, LFO rates, warnings
-npm run live -- --host localhost --seconds 10   # play it for real against a (dry-run) daemon
+npm run dev      # http://localhost:5173 (?toy=<id> opens a specific toy)
+npm test         # every toy's slot map and song, the engine, camera framing; no browser needed
+npm run report -- --toy example   # simulate a toy's song: per-jack notes, volts, repeats, LFO rates, warnings
+npm run live -- --toy example --host localhost --seconds 10   # play it for real against a (dry-run) daemon
 ```
 
 Serve it over **http://**: browsers block the daemon's `ws://` from https
 pages. For another machine on the LAN, `npx vite --host`.
 
-## Making a new toy
-
-1. **Copy the template** (GitHub's "Use this template", or clone it into a new
-   repo).
-2. **Name it and map the slots** in [`src/config.js`](src/config.js): set
-   `APP.NAME` and `APP.STORAGE_PREFIX`, then list one entry in `VOICES` per
-   jack you use (see [Voices](#voices)). Write a `patch` suggestion for each;
-   it appears in the wiring card.
-3. **Write a song** in `src/song/` (see [The song](#the-song)). Start from
-   [`example-song.js`](src/song/example-song.js).
-4. **Write a visual** in `src/visual/` (see [The visual](#the-visual)). Start
-   from [`example-visual.js`](src/visual/example-visual.js).
-5. **Point [`src/toy.js`](src/toy.js) at them**, then delete the examples and
-   `test/example-song.test.js`.
-6. Run `npm test` and `npm run report`. The tests check whatever song
-   `toy.js` names: valid voices, notes inside each voice's range and the DAC's,
-   and events that stay stable within a bar. The report flags musical
-   problems: clamped notes, stuck arps, silent voices, busy LFOs.
+## Layout
 
 ```
 src/
-  config.js                 ← yours: name, slots, tempo, network
-  toy.js                    ← yours: which song and visual (read by the app, tests and tools)
-  main.js                     browser entry point: startApp(toy)
-  song/example-song.js      ← yours: replace
-  visual/example-visual.js  ← yours: replace
-  framework/                  the reusable part; normally left alone
-    app.js                    wires everything together, and the panel
+  hardware.js               shared by every toy: the Pi's address, CV limits, tune note
+  toys/
+    index.js                the registry: one line per toy, in picker order
+    example/                a toy: its own folder
+      index.js              defineToy({ id, name, voices, createSong, createVisual, ... })
+      config.js             its slot map (VOICES), tempo, visual defaults
+      song.js               what it plays
+      visual.js             what it draws
+    pulse/                  another toy
+  main.js                   picks the toy (?toy=, else the last one picked) and starts it
+  framework/                the reusable part; normally left alone
+    app.js                  wires everything together, and the panel
+    toy.js                  defineToy(), and the active toy the framework reads
     style.css
     engine/   synth.js (connection) · sequencer.js (clock) · lfo.js · conductor.js
     ui/       strip.js · tracker.js · wiring.js
     runtime/  runtime.js (three.js) · camera.js (framing)
     music/    theory.js (scales, chords, seeded randomness, euclidean rhythms)
-test/                         song.test.js checks any song; the rest check the framework
-tools/                        report.mjs (npm run report), live.mjs (npm run live)
-docs/new-toy-prompt.md        a fill-in prompt for starting a toy with an agent
-AGENTS.md                     the manual for agents (and a checklist for people)
+test/                       toys.test.js and song.test.js check every registered toy; the rest check the framework
+tools/                      report.mjs (npm run report), live.mjs (npm run live)
+docs/new-toy-prompt.md      a fill-in prompt for starting a toy with an agent
+AGENTS.md                   the manual for agents (and a checklist for people)
 ```
+
+## Adding a toy
+
+1. **Copy a toy's folder**: `cp -r src/toys/example src/toys/mytoy`. Use
+   `pulse` for a minimal start.
+2. **Define it** in `src/toys/mytoy/index.js`: give it a new `id` (lowercase,
+   the same as the folder) and a `name`.
+3. **Register it**: add a line to [`src/toys/index.js`](src/toys/index.js):
+   ```js
+   { id: 'mytoy', name: 'MY TOY', load: () => import('./mytoy/index.js') },
+   ```
+4. **Map its jacks** in `config.js` (see [Voices](#voices)). Write a `patch`
+   suggestion for each; it appears in the wiring card.
+5. **Write its song and visual** (see [The song](#the-song) and
+   [The visual](#the-visual)).
+6. **Check it**: `npm test` (runs for every registered toy) and
+   `npm run report -- --toy mytoy`. Then open `http://localhost:5173/?toy=mytoy`.
+
+To remove a toy, delete its folder and its registry line. The first toy in the
+registry is the default. Each toy keeps its own saved settings (View tilt,
+tracker), and they all share the Pi's address.
+
+Only one toy runs at a time. Picking another reloads the page, so the old
+toy's connection closes before the new one opens: the Pi serves one client.
+Each toy is built as its own chunk and loaded when picked.
 
 ## Voices
 
-Each entry in `VOICES` is one jack. `slot` is the **protocol** slot, 0–11;
-the panel's jacks are labelled 1–12, so slot 0 is jack 1. The UI shows jack
-numbers (`JACK_OFFSET` in config). Jacks without a voice stay silent and show
-as free in the wiring card.
+Each entry in a toy's `VOICES` is one jack. `slot` is the **protocol** slot,
+0–11. The panel's jacks are labelled 1–12, so slot 0 is jack 1. The UI shows
+jack numbers (`JACK_OFFSET` in `hardware.js`). Jacks without a voice stay
+silent and show as free in the wiring card.
 
 | kind | gate | CV | fields |
 |------|------|----|--------|
@@ -94,7 +111,9 @@ scale: patch them to two VCAs for a crossfade.
 ## The song
 
 A song is an object the conductor asks for events. The contract is in
-[`conductor.js`](src/framework/engine/conductor.js):
+[`conductor.js`](src/framework/engine/conductor.js); worked examples are
+[`example/song.js`](src/toys/example/song.js) (everything) and
+[`pulse/song.js`](src/toys/pulse/song.js) (the minimum).
 
 | member | required | |
 |--------|:-:|---|
@@ -130,15 +149,17 @@ Optional members switch on parts of the panel:
 | `regenerate()` | the New button, `n` |
 | `caption` → `{ title, subtitle }` | text above the slots; the title fades in when it changes |
 | `plays(id)` | dims voices that aren't in the arrangement right now |
+| `controls` → `[{ id, label, title, get(), set(on) }]` | the toy's own toggle buttons (the example's "Half-time"); the bar is re-read after `set` |
 
 ## The visual
 
-`createVisual(runtime)` in `toy.js` builds it. Everything except `update` is
+`createVisual(runtime, song)` in the toy's `index.js` builds it. `song` is the
+toy's song, for visuals that draw its patterns. Everything except `update` is
 optional:
 
 | member | |
 |--------|---|
-| `constructor(runtime)` | build the scene into `runtime.scene` |
+| `constructor(runtime, song)` | build the scene into `runtime.scene` |
 | `update(frame)` | every frame: `{ dt, time, pos, playing, stepsPerSecond }`. `pos` is the song position in 16ths (null when stopped). Set `frame.tiltOffset` (degrees) to move the camera off the View setting. |
 | `hit(event, abs)` | a voice played |
 | `setLfo(lfos)` | about 50 times a second: `[{ voice, value (0..1), note }]` |
@@ -152,21 +173,24 @@ The runtime ([`runtime.js`](src/framework/runtime/runtime.js)) gives you:
 - `bloom` (UnrealBloomPass);
 - `subject = { radius, height, y }`: the size of what you draw. The camera rig keeps it in frame at any tilt and screen shape; this is tested.
 - `rig = false` to drive the camera yourself;
-- `push` (0..1, pull in on a big hit) and `sway`.
+- `push` (0..1, pull in on a big hit) and `sway`;
+- `addPass(pass)`: add your own post-processing (a CRT, glitch or scroller `ShaderPass`) after bloom;
+- `renderPass` and `outputPass`: e.g. aim `renderPass.camera` at an orthographic camera for a full-screen shader.
 
-Render resolution drops on its own if frames get slow. Tone mapping (ACES) is
-on, so standard materials and bloom behave.
+Render resolution drops on its own if frames get slow (bounds in the toy's
+`visuals`). Tone mapping (ACES) is on, so standard materials and bloom behave.
 
 ## The UI
 
 | | |
 |---|---|
+| **toy name ▾** | the picker: switch toys |
 | `space` / **Play** | play / stop. Stop drops every gate. Won't start in a hidden tab. |
 | `esc` / **Panic** | all notes off (always, even with the wiring card open) |
-| **BPM**, **View** | tempo; camera tilt from side-on to straight down (remembered) |
+| **BPM**, **View** | tempo; camera tilt from side-on to straight down (remembered per toy) |
 | `u` / **Tune** | every CV to C3 (2.0 V) with the synth gates held open, for tuning |
 | `w` / **Wiring** | the wiring card: every jack's gate, CV range and patch suggestion |
-| `t` / **Tracker** | the tracker view (remembered) |
+| `t` / **Tracker** | the tracker view (remembered per toy) |
 | slot cells | note and voltage being sent (red if the DAC can't reach it); click to mute; **S** or shift-click to solo |
 | `h`, `f` | hide the UI, fullscreen |
 
@@ -178,6 +202,8 @@ about once a second, which would stutter the sequence and leave gates hanging.
 
 ## Hardware notes
 
+These are in [`src/hardware.js`](src/hardware.js), shared by every toy.
+
 - **CV range**: 1 V/oct with note 24 (C1) at 0 V, up to 3.3 V. The highest
   note with a real voltage is 63 (D#4, 3.25 V). Notes outside 24–63 are
   clamped, and show red in the slot strip.
@@ -187,8 +213,7 @@ about once a second, which would stutter the sequence and leave gates hanging.
 - **No CV without a gate**: `CV_NOTE_ON` always raises the gate, which is why
   tune mode gives non-synth jacks a sub-millisecond gate blip.
 - **One client at a time**: the daemon refuses a second connection ("Daemon is
-  busy with another client"). Close other toys' tabs first. The toy retries
-  every 2 s.
+  busy with another client"). Close other tabs first. The toy retries every 2 s.
 
 ## Testing without the Pi
 

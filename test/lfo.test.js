@@ -1,10 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LfoBank } from '../src/framework/engine/lfo.js';
-import { VOICES } from '../src/config.js';
-import { fakeSynth } from './helpers.js';
+import { useToy } from '../src/framework/toy.js';
+import { allToys, fakeSynth } from './helpers.js';
 
-test('LFOs half a cycle apart are complementary (a crossfade)', (t) => {
+const toys = await allToys();
+
+for (const { toy } of toys) {
+test(`${toy.id}: LFOs half a cycle apart are complementary (a crossfade)`, (t) => {
+  useToy(toy);
+  const VOICES = toy.voices;
   const pair = VOICES.filter((v) => v.kind === 'lfo' && v.shape === 'sine');
   const a = pair.find((v) => !v.phase);
   const b = pair.find((v) => v.phase === 0.5 && v.cycleSteps === a?.cycleSteps);
@@ -20,7 +25,8 @@ test('LFOs half a cycle apart are complementary (a crossfade)', (t) => {
   }
 });
 
-test('held LFOs only send when the note changes', () => {
+test(`${toy.id}: held LFOs only send when the note changes`, () => {
+  useToy(toy);
   const synth = fakeSynth();
   const bank = new LfoBank(synth);
   bank.reset();
@@ -32,8 +38,9 @@ test('held LFOs only send when the note changes', () => {
   }
 });
 
-test('sample & hold triggers once per sample', (t) => {
-  const snh = VOICES.find((v) => v.kind === 'lfo' && v.shape === 'sh');
+test(`${toy.id}: sample & hold triggers once per sample`, (t) => {
+  useToy(toy);
+  const snh = toy.voices.find((v) => v.kind === 'lfo' && v.shape === 'sh');
   if (!snh) return t.skip('no S&H in config');
   const synth = fakeSynth();
   const bank = new LfoBank(synth);
@@ -43,3 +50,4 @@ test('sample & hold triggers once per sample', (t) => {
   const triggers = synth.sent.filter((s) => s.op === 'play' && s.slot === snh.slot).length;
   assert.equal(triggers, cycles);
 });
+}

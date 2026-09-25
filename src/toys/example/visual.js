@@ -3,7 +3,8 @@
 // LFOs drive a halo and nudge the camera.
 //
 // The visual interface (every method optional except update):
-//   constructor(runtime)   build your scene; see src/framework/runtime/runtime.js
+//   constructor(runtime, song)  build your scene; see src/framework/runtime/runtime.js.
+//                          `song` is this toy's song, for visuals that draw its patterns
 //   hit(event, abs)        a voice played (only audible ones reach you)
 //   setLfo(lfos)           ~50 times a second: [{ voice, value (0..1), note }]
 //   setAudible(isAudible)  isAudible(id): muted / solo'd out / not in the arrangement
@@ -13,7 +14,8 @@
 //   dispose()
 
 import * as THREE from 'three';
-import { TRANSPORT, VOICES } from '../config.js';
+import { STEPS_PER_BAR } from '../../hardware.js';
+import { VOICES } from './config.js';
 
 const TAU = Math.PI * 2;
 const RING = 3.2;
@@ -88,7 +90,7 @@ export class ExampleVisual {
     // One turn per bar while playing; a slow drift when stopped.
     if (pos == null) this.idlePos += dt * stepsPerSecond * 0.2;
     const p = pos ?? this.idlePos;
-    this.group.rotation.y = -(p / TRANSPORT.STEPS_PER_BAR) * TAU;
+    this.group.rotation.y = -(p / STEPS_PER_BAR) * TAU;
 
     for (const orb of this.orbs.values()) {
       orb.level *= Math.exp(-dt / 0.2);

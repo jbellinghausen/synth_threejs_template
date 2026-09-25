@@ -12,7 +12,7 @@
     <div id="ui" class="ui">
       <section class="panel">
         <header class="panel__head">
-          <span id="logo" class="logo"></span>
+          <select id="toyPicker" class="logo" aria-label="Toy"></select>
           <span id="status" class="status">offline</span>
         </header>
 
@@ -47,6 +47,9 @@
           <button id="tune" class="btn" aria-pressed="false" title="All CVs to one note, synth gates held open">Tune</button>
           <button id="panic" class="btn btn--quiet">Panic</button>
         </div>
+
+        <!-- The song's own toggles (song.controls). -->
+        <div class="row row--wrap" id="toyControls" hidden></div>
 
         <div class="row">
           <button id="wiringOpen" class="btn" aria-haspopup="dialog" aria-controls="wiring">Wiring</button>

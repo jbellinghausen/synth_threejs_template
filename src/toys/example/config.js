@@ -1,36 +1,9 @@
-// Everything a toy configures: its name, the slot map, tempo and network.
-// The framework reads this file; songs and visuals read it too.
-
-export const APP = {
-  NAME: 'SYNTH TOY',
-  /** localStorage keys are prefixed with this, so toys don't share settings. */
-  STORAGE_PREFIX: 'synth-toy',
-};
-
-export const NETWORK = {
-  DEFAULT_HOST: 'raspberrypi.local',
-  FALLBACK_HOST: '192.168.1.234',
-  PORT: 9743,
-  RETRY_MS: 2000,
-  PING_INTERVAL_MS: 3000,
-};
-
-/** Hardware limit: 1 V/oct, note 24 = 0 V, clamping at 3.3 V (note 63 = 3.25 V). */
-export const CV_NOTE_MIN = 24;
-export const CV_NOTE_MAX = 63;
-export const CV_SLOTS = 12;
+// This toy's settings: its slot map, tempo and visual defaults.
+// Shared hardware settings (the Pi, CV limits) are in src/hardware.js.
 
 /**
- * The panel labels its jacks 1-12, the protocol numbers slots 0-11. The UI
- * shows panel numbers; every `slot` in this file is a protocol slot
- * (jack - 1). Set to 0 to show protocol numbers instead.
- */
-export const JACK_OFFSET = 1;
-export const jackLabel = (slot) => String(slot + JACK_OFFSET).padStart(2, '0');
-
-/**
- * One entry per slot the toy uses. Slots not listed stay silent and show as
- * unused in the wiring card.
+ * The slot map: one entry per jack this toy uses. Jacks not listed stay silent
+ * and show as free in the wiring card.
  *
  * Common fields: id (what songs emit), slot (protocol slot 0-11), kind,
  * label (UI, up to ~7 chars), patch (the wiring card's suggestion).
@@ -70,35 +43,7 @@ export const VOICES = [
 
 export const VOICE = Object.fromEntries(VOICES.map((v) => [v.id, v]));
 
-export const TRANSPORT = {
-  STEPS_PER_BAR: 16,
-  BPM_MIN: 60,
-  BPM_MAX: 180,
-  BPM_DEFAULT: 120,
-};
+export const TRANSPORT = { BPM_MIN: 60, BPM_MAX: 180, BPM_DEFAULT: 120 };
 
-/**
- * Tune mode: every CV slot to one note (48 = C3 = 2.0 V), gates held high on
- * the synth voices so their oscillators sound.
- */
-export const TUNE = { NOTE: 48 };
-
-export const LFO = {
-  /** How often LFO outputs are recomputed. Values are only sent on change. */
-  TICK_MS: 20,
-};
-
-export const VISUALS = {
-  /** Render scale as a fraction of the screen's pixels; drops (never above 1) to hold the frame rate. */
-  RENDER_SCALE: 1,
-  RENDER_SCALE_MIN: 0.4,
-  RENDER_SCALE_MAX: 1,
-  /** Frame-time band the adaptive resolution aims for, in ms. */
-  TARGET_FRAME_MS: [12, 19],
-  /** Default camera tilt for the View slider, degrees above the horizon. */
-  TILT_DEFAULT: 55,
-};
-
-export function stepMsFor(bpm) {
-  return 60000 / bpm / 4;
-}
+/** Overrides for the framework's visual defaults (see src/framework/toy.js). */
+export const VISUALS = { TILT_DEFAULT: 55 };

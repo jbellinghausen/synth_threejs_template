@@ -1,10 +1,11 @@
-import { CV_NOTE_MIN, CV_SLOTS, TRANSPORT, VOICES, jackLabel } from '../../config.js';
+import { CV_NOTE_MIN, CV_SLOTS, STEPS_PER_BAR, jackLabel } from '../../hardware.js';
+import { voices } from '../toy.js';
 import { trackerName } from '../music/theory.js';
 
 const volts = (note) => ((note - CV_NOTE_MIN) / 12).toFixed(2);
 const noteName = (note) => trackerName(note).replace('-', '');
 const bars = (steps) => {
-  const n = steps / TRANSPORT.STEPS_PER_BAR;
+  const n = steps / STEPS_PER_BAR;
   return n >= 1 ? `${n} bar${n === 1 ? '' : 's'}` : `${steps} 16ths`;
 };
 const esc = (text) => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -34,7 +35,7 @@ export function describe(voice) {
 
 /**
  * The wiring card: a dialog listing every jack with its gate behaviour, CV
- * range and the `patch` suggestion from config.js. Jacks no voice uses are
+ * range and the `patch` suggestion from the toy's config. Jacks no voice uses are
  * listed as free.
  */
 export class Wiring {
@@ -67,7 +68,7 @@ export class Wiring {
   #rows() {
     const out = [];
     for (let slot = 0; slot < CV_SLOTS; slot += 1) {
-      const voice = VOICES.find((v) => v.slot === slot);
+      const voice = voices().find((v) => v.slot === slot);
       if (!voice) {
         out.push(`<tr class="is-unused"><td class="wiring__jack">${jackLabel(slot)}</td>`
           + '<td class="wiring__voice">—</td><td></td><td></td><td class="wiring__patch">Unused: free for your own patching.</td></tr>');

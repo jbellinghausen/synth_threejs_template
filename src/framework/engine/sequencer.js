@@ -1,4 +1,5 @@
-import { TRANSPORT, stepMsFor } from '../../config.js';
+import { STEPS_PER_BAR, stepMsFor } from '../../hardware.js';
+import { activeToy } from '../toy.js';
 
 /** Resync instead of catching up if we fall further behind than this. */
 const RESYNC_MS = 250;
@@ -10,7 +11,7 @@ const RESYNC_MS = 250;
 export class Sequencer {
   constructor(onStep) {
     this.onStep = onStep;
-    this.bpm = TRANSPORT.BPM_DEFAULT;
+    this.bpm = activeToy().transport.BPM_DEFAULT;
     this.playing = false;
     this.step = 0; // absolute steps since start
     this.timer = null;
@@ -56,7 +57,7 @@ export class Sequencer {
     this.lastStepMs = stepMs;
     const abs = this.step;
     this.step += 1;
-    this.onStep(abs % TRANSPORT.STEPS_PER_BAR, abs, stepMs);
+    this.onStep(abs % STEPS_PER_BAR, abs, stepMs);
 
     this.nextTime += stepMs;
     const now = performance.now();

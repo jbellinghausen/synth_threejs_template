@@ -1,8 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Conductor, eventNote } from '../src/framework/engine/conductor.js';
-import { CV_SLOTS, TRANSPORT, TUNE, VOICES } from '../src/config.js';
-import { fakeSynth } from './helpers.js';
+import { CV_SLOTS, STEPS_PER_BAR, TUNE } from '../src/hardware.js';
+import { activate, fakeSynth } from './helpers.js';
+
+// Framework behaviour, exercised with the example toy's voices.
+const { voices: VOICES } = await activate('example');
 
 // These run against whatever voices config.js defines.
 
@@ -29,7 +32,7 @@ test('reads the whole bar at its first step and reports it', () => {
   let reported = null;
   const c = new Conductor({ synth: fakeSynth(), song: everything, onBar: ({ events }) => (reported = events) });
   c.sequencer.onStep(0, 0, 125);
-  assert.equal(reported.length, TRANSPORT.STEPS_PER_BAR);
+  assert.equal(reported.length, STEPS_PER_BAR);
   assert.equal(reported[5][0].abs, 5);
 });
 

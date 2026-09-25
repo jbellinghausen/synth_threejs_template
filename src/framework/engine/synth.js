@@ -1,5 +1,5 @@
 import { SynthModuleClient } from 'synth-module-client';
-import { CV_NOTE_MAX, CV_NOTE_MIN, NETWORK } from '../../config.js';
+import { CV_NOTE_MAX, CV_NOTE_MIN, NETWORK } from '../../hardware.js';
 
 const clampNote = (note) => Math.max(CV_NOTE_MIN, Math.min(CV_NOTE_MAX, Math.round(note)));
 

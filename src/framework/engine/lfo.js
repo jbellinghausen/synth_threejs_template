@@ -1,4 +1,4 @@
-import { VOICES } from '../../config.js';
+import { voices } from '../toy.js';
 import { hash } from '../music/theory.js';
 
 const TAU = Math.PI * 2;
@@ -25,7 +25,7 @@ export class LfoBank {
     this.rate = 1;
     this.seed = 1;
     this.muted = new Set();
-    this.lfos = VOICES.filter((v) => v.kind === 'lfo').map((voice) => ({
+    this.lfos = voices().filter((v) => v.kind === 'lfo').map((voice) => ({
       voice, cycles: voice.phase ?? 0, value: 0, note: voice.range[0], sent: null, sample: -1, fresh: false,
     }));
     this.lastPos = null;

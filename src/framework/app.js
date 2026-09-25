@@ -1,4 +1,5 @@
-import { APP, NETWORK, TRANSPORT, TUNE, VISUALS, VOICES } from '../config.js';
+import { NETWORK, STORAGE_PREFIX, TUNE } from '../hardware.js';
+import { voices } from './toy.js';
 import { Conductor } from './engine/conductor.js';
 import { SynthLink } from './engine/synth.js';
 import { NOTE_NAMES, SCALES, trackerName } from './music/theory.js';
@@ -8,28 +9,34 @@ import { Strip } from './ui/strip.js';
 import { Tracker } from './ui/tracker.js';
 import { Wiring } from './ui/wiring.js';
 
-/** localStorage that never throws (private windows, blocked storage). */
-const store = {
-  get(key) {
-    try {
-      return localStorage.getItem(`${APP.STORAGE_PREFIX}.${key}`);
-    } catch {
-      return null;
-    }
-  },
-  set(key, value) {
-    try {
-      localStorage.setItem(`${APP.STORAGE_PREFIX}.${key}`, String(value));
-    } catch {
-      /* storage blocked */
-    }
-  },
-};
+/** localStorage under a prefix, never throwing (private windows, blocked storage). */
+export function makeStore(prefix) {
+  return {
+    get(key) {
+      try {
+        return localStorage.getItem(`${prefix}.${key}`);
+      } catch {
+        return null;
+      }
+    },
+    set(key, value) {
+      try {
+        localStorage.setItem(`${prefix}.${key}`, String(value));
+      } catch {
+        /* storage blocked */
+      }
+    },
+  };
+}
+
+/** Settings every toy shares: the Pi's address, the last toy picked. */
+export const sharedStore = makeStore(STORAGE_PREFIX);
 
 /**
- * Start a toy (see src/toy.js): `createSong()` returns the song (see
- * src/song/example-song.js), `createVisual(runtime)` builds its visual from
- * the three.js runtime (see src/visual/example-visual.js).
+ * Start a toy: `toy` comes from defineToy() (see src/toys/example/index.js)
+ * and must already be active (useToy). `toys` is the registry
+ * (src/toys/index.js), for the picker; choosing another toy reloads the page
+ * with ?toy=<id>, so each toy starts with a clean connection.
  *
  * Optional song features switch on parts of the panel:
  *   setKey(rootPc, scaleKey), rootPc, scaleKey     → root and scale menus
@@ -37,12 +44,14 @@ const store = {
  *   regenerate()                                   → New button, n key
  *   caption { title, subtitle }                    → the caption above the slots
  *   plays(id)                                      → whether a voice is in the arrangement right now
+ *   controls [{ id, label, title?, get(), set(on) }] → toy-specific toggle buttons
  */
-export function startApp({ createSong, createVisual }) {
-  const song = createSong();
+export function startApp(toy, { toys = [] } = {}) {
+  const song = toy.createSong();
+  const store = makeStore(`${STORAGE_PREFIX}.${toy.id}`); // this toy's own settings
   const $ = (id) => document.getElementById(id);
   const el = {
-    ui: $('ui'), logo: $('logo'), status: $('status'), host: $('host'), connect: $('connect'),
+    ui: $('ui'), picker: $('toyPicker'), controls: $('toyControls'), status: $('status'), host: $('host'), connect: $('connect'),
     rtt: $('rtt'), fps: $('fps'), play: $('play'), bpm: $('bpm'), bpmValue: $('bpmValue'),
     tilt: $('tilt'), tiltValue: $('tiltValue'), root: $('root'), scale: $('scale'),
     section: $('section'), evolve: $('evolve'), regen: $('regen'), tune: $('tune'), panic: $('panic'),
@@ -50,8 +59,19 @@ export function startApp({ createSong, createVisual }) {
     captionTitle: $('captionTitle'), captionSubtitle: $('captionSubtitle'),
   };
 
-  document.title = APP.NAME;
-  el.logo.textContent = APP.NAME;
+  document.title = toy.name;
+  // The toy picker: the toy's name, and a menu of the others.
+  const entries = toys.length ? toys : [{ id: toy.id, name: toy.name }];
+  for (const entry of entries) el.picker.add(new Option(entry.name, entry.id));
+  el.picker.value = toy.id;
+  el.picker.title = toy.description || toy.name;
+  el.picker.disabled = entries.length < 2;
+  el.picker.addEventListener('change', () => {
+    sharedStore.set('toy', el.picker.value);
+    const url = new URL(location.href);
+    url.searchParams.set('toy', el.picker.value);
+    location.assign(url); // a fresh page: the old toy's connection closes, the new one opens
+  });
 
   const features = {
     key: typeof song.setKey === 'function',
@@ -63,7 +83,7 @@ export function startApp({ createSong, createVisual }) {
   // --- core -------------------------------------------------------------------
 
   const runtime = new Runtime($('gl'));
-  const visual = createVisual(runtime);
+  const visual = toy.createVisual(runtime, song);
   runtime.visual = visual;
   const tracker = new Tracker(el.tracker);
 
@@ -153,7 +173,7 @@ export function startApp({ createSong, createVisual }) {
     el.play.textContent = 'Play';
     tracker.setRow(-1);
     if (on) {
-      for (const voice of VOICES) strip.showNote(voice.id, TUNE.NOTE);
+      for (const voice of voices()) strip.showNote(voice.id, TUNE.NOTE);
       flashTitle(`TUNE · ${trackerName(TUNE.NOTE).replace('-', '')} ON EVERY SLOT`, 0);
     } else {
       el.captionTitle.classList.remove('is-showing');
@@ -169,12 +189,12 @@ export function startApp({ createSong, createVisual }) {
 
   // --- panel ----------------------------------------------------------------------
 
-  el.host.value = store.get('host') || NETWORK.DEFAULT_HOST;
+  el.host.value = sharedStore.get('host') || NETWORK.DEFAULT_HOST;
   el.host.placeholder = `${NETWORK.DEFAULT_HOST} or ${NETWORK.FALLBACK_HOST}`;
   el.connect.addEventListener('click', () => {
     if (synth.status !== 'offline') return synth.disconnect();
     const host = el.host.value.trim() || NETWORK.DEFAULT_HOST;
-    store.set('host', host);
+    sharedStore.set('host', host);
     synth.connect(host);
   });
 
@@ -182,14 +202,15 @@ export function startApp({ createSong, createVisual }) {
   el.panic.addEventListener('click', () => synth.panic());
   el.tune.addEventListener('click', () => setTuning(!conductor.tuning));
 
-  Object.assign(el.bpm, { min: TRANSPORT.BPM_MIN, max: TRANSPORT.BPM_MAX, step: 1, value: TRANSPORT.BPM_DEFAULT });
-  el.bpmValue.textContent = String(TRANSPORT.BPM_DEFAULT);
+  const { transport } = toy;
+  Object.assign(el.bpm, { min: transport.BPM_MIN, max: transport.BPM_MAX, step: 1, value: transport.BPM_DEFAULT });
+  el.bpmValue.textContent = String(transport.BPM_DEFAULT);
   el.bpm.addEventListener('input', () => {
     el.bpmValue.textContent = el.bpm.value;
     conductor.setBpm(Number(el.bpm.value));
   });
 
-  Object.assign(el.tilt, { min: TILT_MIN, max: TILT_MAX, step: 1, value: Number(store.get('tilt')) || VISUALS.TILT_DEFAULT });
+  Object.assign(el.tilt, { min: TILT_MIN, max: TILT_MAX, step: 1, value: Number(store.get('tilt')) || toy.visuals.TILT_DEFAULT });
   const applyTilt = () => {
     el.tiltValue.textContent = `${el.tilt.value}°`;
     runtime.setTilt(Number(el.tilt.value));
@@ -236,6 +257,24 @@ export function startApp({ createSong, createVisual }) {
     } else {
       el.evolve.hidden = true;
     }
+  }
+
+  // Toy-specific toggles: song.controls = [{ id, label, title?, get(), set(on) }].
+  const controls = Array.isArray(song.controls) ? song.controls : [];
+  el.controls.hidden = controls.length === 0;
+  for (const control of controls) {
+    const button = document.createElement('button');
+    button.className = 'btn';
+    button.textContent = control.label;
+    if (control.title) button.title = control.title;
+    const sync = () => button.setAttribute('aria-pressed', String(Boolean(control.get())));
+    button.addEventListener('click', () => {
+      control.set(!control.get());
+      sync();
+      refresh();
+    });
+    sync();
+    el.controls.append(button);
   }
 
   const newMusic = () => {

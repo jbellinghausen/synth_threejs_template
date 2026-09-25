@@ -1,4 +1,5 @@
-import { TRANSPORT, VOICES, jackLabel } from '../../config.js';
+import { STEPS_PER_BAR, jackLabel } from '../../hardware.js';
+import { voices } from '../toy.js';
 import { trackerName } from '../music/theory.js';
 
 const ROW_H = 17;
@@ -33,7 +34,7 @@ export class Tracker {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.events = Array.from({ length: TRANSPORT.STEPS_PER_BAR }, () => []);
+    this.events = Array.from({ length: STEPS_PER_BAR }, () => []);
     this.row = -1;
     this.lfos = [];
     this.isSilent = () => false;
@@ -43,8 +44,8 @@ export class Tracker {
 
   resize() {
     const dpr = Math.min(devicePixelRatio, 2);
-    const w = ROWNUM_W + COL_W * VOICES.length + 8;
-    const h = HEADER_H + ROW_H * TRANSPORT.STEPS_PER_BAR + 8;
+    const w = ROWNUM_W + COL_W * voices().length + 8;
+    const h = HEADER_H + ROW_H * STEPS_PER_BAR + 8;
     this.canvas.width = w * dpr;
     this.canvas.height = h * dpr;
     this.canvas.style.width = `${w}px`;
@@ -88,7 +89,7 @@ export class Tracker {
     ctx.font = FONT;
     ctx.textBaseline = 'middle';
 
-    VOICES.forEach((voice, c) => {
+    voices().forEach((voice, c) => {
       const x = ROWNUM_W + c * COL_W;
       const silent = this.isSilent(voice.id);
       ctx.fillStyle = silent ? COLORS.dim : COLORS.header;
@@ -97,7 +98,7 @@ export class Tracker {
       ctx.fillText(voice.label.slice(0, 5), x + 4, 24);
     });
 
-    for (let r = 0; r < TRANSPORT.STEPS_PER_BAR; r += 1) {
+    for (let r = 0; r < STEPS_PER_BAR; r += 1) {
       const y = HEADER_H + r * ROW_H;
       if (r % 4 === 0) {
         ctx.fillStyle = COLORS.beat;
@@ -111,7 +112,7 @@ export class Tracker {
       ctx.fillText(r.toString(16).toUpperCase().padStart(2, '0'), 5, y + ROW_H / 2);
 
       const byVoice = new Map((this.events[r] ?? []).map((e) => [e.voice, e]));
-      VOICES.forEach((voice, c) => {
+      voices().forEach((voice, c) => {
         if (voice.kind === 'lfo') return;
         const x = ROWNUM_W + c * COL_W + 4;
         const e = byVoice.get(voice.id);
@@ -135,9 +136,9 @@ export class Tracker {
 
     // LFO columns: a live meter the full height of the pattern
     const top = HEADER_H;
-    const height = ROW_H * TRANSPORT.STEPS_PER_BAR;
+    const height = ROW_H * STEPS_PER_BAR;
     for (const l of this.lfos) {
-      const c = VOICES.indexOf(l.voice);
+      const c = voices().indexOf(l.voice);
       const x = ROWNUM_W + c * COL_W + 6;
       const silent = this.isSilent(l.voice.id);
       ctx.fillStyle = COLORS.grid;

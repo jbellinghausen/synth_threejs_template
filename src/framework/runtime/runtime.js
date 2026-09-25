@@ -4,7 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { VISUALS } from '../../config.js';
+import { activeToy } from '../toy.js';
 import { TILT_MAX, TILT_MIN, cameraDistance } from './camera.js';
 
 /**
@@ -21,30 +21,38 @@ import { TILT_MAX, TILT_MIN, cameraDistance } from './camera.js';
  *   rig           false to drive the camera yourself
  *   push          0..1, pulls the rig camera in (e.g. on a big hit)
  *   sway          side-to-side rig movement in radians
+ *   addPass(p)    add a post-processing pass (e.g. a ShaderPass) after bloom,
+ *                 before the final tone-mapping/colour output
+ *   renderPass, outputPass   e.g. point renderPass.camera at your own camera
+ *                 (a full-screen shader), or set outputPass.enabled = false
+ *                 and renderer.toneMapping = NoToneMapping to do your own
  */
 export class Runtime {
   constructor(canvas) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
-    this.scale = VISUALS.RENDER_SCALE;
+    this.visuals = activeToy().visuals;
+    this.scale = this.visuals.RENDER_SCALE;
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x05060f);
     this.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 400);
 
     this.composer = new EffectComposer(this.renderer);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.renderPass = new RenderPass(this.scene, this.camera);
+    this.composer.addPass(this.renderPass);
     this.afterimage = new AfterimagePass(0);
     this.composer.addPass(this.afterimage);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.6, 0.35);
     this.composer.addPass(this.bloom);
-    this.composer.addPass(new OutputPass());
+    this.outputPass = new OutputPass();
+    this.composer.addPass(this.outputPass);
 
     this.trails = 0.6;
     this.subject = { radius: 5, height: 2, y: 0 };
     this.rig = true;
-    this.tilt = VISUALS.TILT_DEFAULT;
+    this.tilt = this.visuals.TILT_DEFAULT;
     this.push = 0;
     this.sway = 0.12;
     this.time = 0;
@@ -72,6 +80,12 @@ export class Runtime {
     this.composer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+  }
+
+  /** Add a post-processing pass after bloom, before the final output. */
+  addPass(pass) {
+    this.composer.insertPass(pass, this.composer.passes.indexOf(this.outputPass));
+    return pass;
   }
 
   /** Camera tilt in degrees above the horizon (the View slider). */
@@ -115,10 +129,10 @@ export class Runtime {
     this.frameMs += (frameMs - this.frameMs) * 0.05;
     this.fps = 1000 / this.frameMs;
     if (now - this.lastScaleChange < 1500) return;
-    const [lo, hi] = VISUALS.TARGET_FRAME_MS;
+    const [lo, hi] = this.visuals.TARGET_FRAME_MS;
     let next = this.scale;
-    if (this.frameMs > hi) next = Math.max(VISUALS.RENDER_SCALE_MIN, this.scale * 0.85);
-    else if (this.frameMs < lo) next = Math.min(VISUALS.RENDER_SCALE_MAX, this.scale * 1.1);
+    if (this.frameMs > hi) next = Math.max(this.visuals.RENDER_SCALE_MIN, this.scale * 0.85);
+    else if (this.frameMs < lo) next = Math.min(this.visuals.RENDER_SCALE_MAX, this.scale * 1.1);
     if (Math.abs(next - this.scale) > 0.01) {
       this.lastScaleChange = now;
       this.scale = next;

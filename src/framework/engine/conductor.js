@@ -1,4 +1,5 @@
-import { CV_SLOTS, LFO, TRANSPORT, TUNE, VOICE, VOICES } from '../../config.js';
+import { CV_SLOTS, LFO, STEPS_PER_BAR, TUNE } from '../../hardware.js';
+import { voiceById, voices } from '../toy.js';
 import { LfoBank } from './lfo.js';
 import { Sequencer } from './sequencer.js';
 
@@ -15,7 +16,7 @@ export function eventNote(event, voice) {
  * Plays a song: reads each bar's events, sends them as CV/gate, runs the
  * LFOs, and reports what happened. Also owns mute, solo and tune mode.
  *
- * The song interface (see src/song/example-song.js):
+ * The song interface (see src/toys/example/song.js):
  *
  *   resetPosition()      Called on Play, before the first bar.
  *   advanceBar()         Called at the top of every bar except the first.
@@ -28,7 +29,7 @@ export function eventNote(event, voice) {
  *   lfoRate              Optional. Multiplies LFO speed; read every bar.
  *
  * An event is { voice, note?, steps?, accent?, ghost?, ...anything }: `voice`
- * is a voice id from config.js, `steps` the length in 16ths (synths). Drums
+ * is a voice id from the toy's config, `steps` the length in 16ths (synths). Drums
  * may omit `note`: they then send the voice's `note`, or its `accentNote` if
  * `accent` is set (see eventNote). Extra fields are passed to the visual.
  */
@@ -43,7 +44,7 @@ export class Conductor {
     this.muted = new Set();
     this.soloed = new Set();
     this.tuning = false;
-    this.bar = Array.from({ length: TRANSPORT.STEPS_PER_BAR }, () => []);
+    this.bar = Array.from({ length: STEPS_PER_BAR }, () => []);
     this.barStart = 0;
     this.lfo = new LfoBank(synth);
     this.lfoTimer = null;
@@ -102,7 +103,7 @@ export class Conductor {
    */
   isAudible(id) {
     if (this.muted.has(id)) return false;
-    if (this.soloed.size === 0 || VOICE[id].kind === 'lfo') return true;
+    if (this.soloed.size === 0 || voiceById(id).kind === 'lfo') return true;
     return this.soloed.has(id);
   }
 
@@ -116,12 +117,12 @@ export class Conductor {
 
   /** Apply a mute/solo change, closing the gate of anything that went silent. */
   #changeAudibility(change) {
-    const before = new Set(VOICES.filter((v) => this.isAudible(v.id)).map((v) => v.id));
+    const before = new Set(voices().filter((v) => this.isAudible(v.id)).map((v) => v.id));
     change();
-    for (const voice of VOICES) {
+    for (const voice of voices()) {
       if (before.has(voice.id) && !this.isAudible(voice.id)) this.synth.gateOff(voice.slot);
     }
-    this.lfo.muted = new Set(VOICES.filter((v) => v.kind === 'lfo' && !this.isAudible(v.id)).map((v) => v.id));
+    this.lfo.muted = new Set(voices().filter((v) => v.kind === 'lfo' && !this.isAudible(v.id)).map((v) => v.id));
     this.lfo.resend(); // anything that came back gets its current value again
   }
 
@@ -145,7 +146,7 @@ export class Conductor {
   #sendTune() {
     for (let slot = 0; slot < CV_SLOTS; slot += 1) {
       this.synth.holdCv(slot, TUNE.NOTE);
-      if (VOICES.find((v) => v.slot === slot)?.kind !== 'synth') this.synth.gateOff(slot);
+      if (voices().find((v) => v.slot === slot)?.kind !== 'synth') this.synth.gateOff(slot);
     }
   }
 
@@ -153,7 +154,7 @@ export class Conductor {
 
   /** Re-read the current bar, e.g. after the song changed under it. */
   refreshBar(changes = { refreshed: true }) {
-    this.bar = Array.from({ length: TRANSPORT.STEPS_PER_BAR }, (_, i) => this.song.eventsAt(this.barStart + i));
+    this.bar = Array.from({ length: STEPS_PER_BAR }, (_, i) => this.song.eventsAt(this.barStart + i));
     this.onBar({ events: this.bar, changes });
   }
 
@@ -167,7 +168,7 @@ export class Conductor {
 
     for (const event of this.bar[step]) {
       if (!this.isAudible(event.voice)) continue;
-      const voice = VOICE[event.voice];
+      const voice = voiceById(event.voice);
       const lengthMs = voice.kind === 'drum' ? voice.trigMs : Math.max(10, (event.steps ?? 1) * stepMs * voice.gate);
       this.synth.playCv(voice.slot, eventNote(event, voice), lengthMs);
       this.onEvent(event, abs);

@@ -4,14 +4,15 @@
 //
 // The only hard requirements are resetPosition(), advanceBar() and
 // eventsAt(abs) (see src/framework/engine/conductor.js). Everything else here
-// is optional and switches on part of the UI (see src/framework/app.js).
+// is optional and switches on part of the UI (see src/framework/app.js), and
+// `controls` shows how to add a toy-specific button.
 
-import { TRANSPORT, VOICE } from '../config.js';
+import { STEPS_PER_BAR } from '../../hardware.js';
+import { VOICE } from './config.js';
 import {
   NOTE_NAMES, SCALES, chordPcs, degreeOffset, euclid, fitRange, mulberry32,
-} from '../framework/music/theory.js';
+} from '../../framework/music/theory.js';
 
-const { STEPS_PER_BAR } = TRANSPORT;
 const SECTION_BARS = 8;
 const PROGRESSION = [0, 5, 3, 4]; // scale degrees, one chord per bar
 
@@ -31,6 +32,7 @@ export class ExampleSong {
     this.pendingSection = null;
     this.evolve = true;
     this.lfoRate = 1;
+    this.halfTime = false;
     this.resetPosition();
     this.regenerate();
   }
@@ -80,7 +82,7 @@ export class ExampleSong {
 
     // Drums: leave out `note` and the framework sends the voice's note, or
     // its accentNote when `accent` is set.
-    if (step % 4 === 0) add({ voice: 'kick', accent: step === 0 });
+    if (step % (this.halfTime ? 8 : 4) === 0) add({ voice: 'kick', accent: step === 0 });
     if (this.hatRhythm[step]) {
       const accent = step % 4 === 2;
       add({ voice: 'hat', accent, ghost: !accent });
@@ -126,6 +128,20 @@ export class ExampleSong {
   /** The section menu and 1-9 keys: jump at the next bar line. */
   queueSection(index) {
     this.pendingSection = index;
+  }
+
+  /**
+   * Toy-specific toggle buttons, shown in the panel. The app re-reads the
+   * current bar after set(), so a change is heard straight away.
+   */
+  get controls() {
+    return [{
+      id: 'halftime',
+      label: 'Half-time',
+      title: 'Kick on beats 1 and 3 only',
+      get: () => this.halfTime,
+      set: (on) => { this.halfTime = on; },
+    }];
   }
 
   /** Shown above the slots: the title flashes when it changes. */
