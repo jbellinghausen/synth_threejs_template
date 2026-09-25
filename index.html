@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Synth toy</title>
+    <link rel="stylesheet" href="./src/framework/style.css" />
+  </head>
+  <body>
+    <canvas id="gl"></canvas>
+
+    <div id="ui" class="ui">
+      <section class="panel">
+        <header class="panel__head">
+          <span id="logo" class="logo"></span>
+          <span id="status" class="status">offline</span>
+        </header>
+
+        <div class="row">
+          <input id="host" type="text" spellcheck="false" autocomplete="off" aria-label="Pi address" />
+          <button id="connect" class="btn">Connect</button>
+        </div>
+        <div class="row row--meta"><span id="rtt"></span><span id="fps"></span></div>
+
+        <div class="row">
+          <button id="play" class="btn btn--play">Play</button>
+          <label class="field">BPM <b id="bpmValue"></b><input id="bpm" type="range" /></label>
+        </div>
+
+        <div class="row">
+          <label class="field" title="Camera tilt: side-on to straight down">View <b id="tiltValue"></b><input id="tilt" type="range" /></label>
+        </div>
+
+        <!-- Rows marked data-needs only show if the song supports that feature. -->
+        <div class="row" data-needs="key">
+          <select id="root" aria-label="Root"></select>
+          <select id="scale" aria-label="Scale"></select>
+        </div>
+
+        <div class="row" data-needs="sections">
+          <select id="section" aria-label="Jump to section"></select>
+          <button id="evolve" class="btn" aria-pressed="true" title="Move through the sections on their own">Evolve</button>
+        </div>
+
+        <div class="row">
+          <button id="regen" class="btn" data-needs="regenerate">New</button>
+          <button id="tune" class="btn" aria-pressed="false" title="All CVs to one note, synth gates held open">Tune</button>
+          <button id="panic" class="btn btn--quiet">Panic</button>
+        </div>
+
+        <div class="row">
+          <button id="wiringOpen" class="btn" aria-haspopup="dialog" aria-controls="wiring">Wiring</button>
+          <button id="trackerToggle" class="btn" aria-pressed="true">Tracker</button>
+        </div>
+
+        <p class="keys">
+          <kbd>space</kbd> play · <kbd>esc</kbd> panic · <span data-needs="sections"><kbd>1-9</kbd> section · </span>
+          <span data-needs="regenerate"><kbd>n</kbd> new · </span><kbd>u</kbd> tune · <kbd>w</kbd> wiring ·
+          <kbd>t</kbd> tracker · <kbd>h</kbd> hide · <kbd>f</kbd> fullscreen
+        </p>
+      </section>
+
+      <canvas id="tracker" class="tracker"></canvas>
+
+      <nav id="strip" class="strip" aria-label="Slots: click to mute, S to solo"></nav>
+    </div>
+
+    <div id="wiring" class="wiring" role="dialog" aria-modal="true" aria-labelledby="wiringTitle" hidden>
+      <div class="wiring__card">
+        <header class="wiring__head">
+          <h2 id="wiringTitle">Wiring</h2>
+          <button id="wiringClose" class="btn btn--quiet" aria-label="Close">&times;</button>
+        </header>
+        <p class="wiring__intro">
+          CV is 1 V/octave with C1 at 0 V, and tops out at 3.3 V (D#4 is the highest note, 3.25 V).
+          Jack numbers are as printed on the panel.
+        </p>
+        <div class="wiring__scroll">
+          <table class="wiring__table">
+            <thead><tr><th>Jack</th><th>Voice</th><th>Gate</th><th>CV</th><th>Patch to</th></tr></thead>
+            <tbody id="wiringRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="caption" aria-live="polite">
+      <div id="captionTitle" class="caption__title"></div>
+      <div id="captionSubtitle" class="caption__subtitle"></div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
