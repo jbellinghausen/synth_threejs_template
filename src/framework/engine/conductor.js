@@ -3,6 +3,15 @@ import { LfoBank } from './lfo.js';
 import { Sequencer } from './sequencer.js';
 
 /**
+ * The note an event sends: its own `note` if it has one, otherwise the
+ * voice's fixed note, using `accentNote` for accented hits.
+ */
+export function eventNote(event, voice) {
+  if (event.note != null) return event.note;
+  return event.accent && voice.accentNote != null ? voice.accentNote : voice.note;
+}
+
+/**
  * Plays a song: reads each bar's events, sends them as CV/gate, runs the
  * LFOs, and reports what happened. Also owns mute, solo and tune mode.
  *
@@ -18,9 +27,10 @@ import { Sequencer } from './sequencer.js';
  *                        any step of the current bar whenever it's asked.
  *   lfoRate              Optional. Multiplies LFO speed; read every bar.
  *
- * An event is { voice, note, steps?, accent?, ghost?, ...anything }: `voice`
- * is a voice id from config.js, `steps` the length in 16ths (synths). Extra
- * fields are passed through to the visual.
+ * An event is { voice, note?, steps?, accent?, ghost?, ...anything }: `voice`
+ * is a voice id from config.js, `steps` the length in 16ths (synths). Drums
+ * may omit `note`: they then send the voice's `note`, or its `accentNote` if
+ * `accent` is set (see eventNote). Extra fields are passed to the visual.
  */
 export class Conductor {
   constructor({ synth, song, onEvent = () => {}, onBar = () => {}, onStep = () => {}, onLfo = () => {} }) {
@@ -159,7 +169,7 @@ export class Conductor {
       if (!this.isAudible(event.voice)) continue;
       const voice = VOICE[event.voice];
       const lengthMs = voice.kind === 'drum' ? voice.trigMs : Math.max(10, (event.steps ?? 1) * stepMs * voice.gate);
-      this.synth.playCv(voice.slot, event.note ?? voice.note, lengthMs);
+      this.synth.playCv(voice.slot, eventNote(event, voice), lengthMs);
       this.onEvent(event, abs);
     }
     this.onStep(step, abs);

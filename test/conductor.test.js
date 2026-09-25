@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Conductor } from '../src/framework/engine/conductor.js';
+import { Conductor, eventNote } from '../src/framework/engine/conductor.js';
 import { CV_SLOTS, TRANSPORT, TUNE, VOICES } from '../src/config.js';
 import { fakeSynth } from './helpers.js';
 
@@ -16,6 +16,14 @@ const everything = {
   advanceBar: () => ({}),
   eventsAt: (abs) => VOICES.filter((v) => v.kind !== 'lfo').map((v) => ({ voice: v.id, note: 48, steps: 1, abs })),
 };
+
+test('drum events without a note use the voice note, or accentNote on accents', () => {
+  const drum = { kind: 'drum', note: 36, accentNote: 48 };
+  assert.equal(eventNote({ voice: 'x' }, drum), 36);
+  assert.equal(eventNote({ voice: 'x', accent: true }, drum), 48);
+  assert.equal(eventNote({ voice: 'x', accent: true, note: 40 }, drum), 40);
+  assert.equal(eventNote({ voice: 'x', accent: true }, { kind: 'drum', note: 36 }), 36);
+});
 
 test('reads the whole bar at its first step and reports it', () => {
   let reported = null;

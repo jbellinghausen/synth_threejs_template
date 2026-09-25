@@ -19,10 +19,17 @@ The framework handles everything that isn't the music or the graphics:
 A toy provides a **song** (what to play) and a **visual** (what to draw). The
 template ships with a small example of each, to replace.
 
+**Building a toy with an AI agent?** Point it at [AGENTS.md](AGENTS.md), the
+operating manual: rules, workflow, contracts, verification and known pitfalls.
+Claude Code picks it up automatically through [CLAUDE.md](CLAUDE.md). A
+fill-in prompt is in [docs/new-toy-prompt.md](docs/new-toy-prompt.md).
+
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm test         # engine, config, example song and camera framing; no browser needed
+npm test         # config, your song's events, engine, camera framing; no browser needed
+npm run report   # simulate the song: per-jack notes, volts, repeats, LFO rates, warnings
+npm run live -- --host localhost --seconds 10   # play it for real against a (dry-run) daemon
 ```
 
 Serve it over **http://**: browsers block the daemon's `ws://` from https
@@ -40,14 +47,18 @@ pages. For another machine on the LAN, `npx vite --host`.
    [`example-song.js`](src/song/example-song.js).
 4. **Write a visual** in `src/visual/` (see [The visual](#the-visual)). Start
    from [`example-visual.js`](src/visual/example-visual.js).
-5. **Point [`src/main.js`](src/main.js) at them.**
-6. Run `npm test`: it checks your config and camera framing. The example-song
-   test shows how to check a song's note ranges; copy it for yours.
+5. **Point [`src/toy.js`](src/toy.js) at them**, then delete the examples and
+   `test/example-song.test.js`.
+6. Run `npm test` and `npm run report`. The tests check whatever song
+   `toy.js` names: valid voices, notes inside each voice's range and the DAC's,
+   and events that stay stable within a bar. The report flags musical
+   problems: clamped notes, stuck arps, silent voices, busy LFOs.
 
 ```
 src/
   config.js                 ← yours: name, slots, tempo, network
-  main.js                   ← yours: picks the song and visual
+  toy.js                    ← yours: which song and visual (read by the app, tests and tools)
+  main.js                     browser entry point: startApp(toy)
   song/example-song.js      ← yours: replace
   visual/example-visual.js  ← yours: replace
   framework/                  the reusable part; normally left alone
@@ -57,7 +68,10 @@ src/
     ui/       strip.js · tracker.js · wiring.js
     runtime/  runtime.js (three.js) · camera.js (framing)
     music/    theory.js (scales, chords, seeded randomness, euclidean rhythms)
-test/
+test/                         song.test.js checks any song; the rest check the framework
+tools/                        report.mjs (npm run report), live.mjs (npm run live)
+docs/new-toy-prompt.md        a fill-in prompt for starting a toy with an agent
+AGENTS.md                     the manual for agents (and a checklist for people)
 ```
 
 ## Voices
@@ -98,10 +112,14 @@ happened earlier in it. Seeded randomness from `theory.js` (`hash`,
 An event is `{ voice, note, steps, accent, ghost, …anything }`:
 - `voice` is an id from `VOICES`.
 - `steps` is the length in 16ths (synths).
+- Drums can leave out `note`: they then send the voice's `note`, or its
+  `accentNote` when `accent` is set.
 - `accent` / `ghost` affect drums and how the tracker draws them.
 - Extra fields go through to the visual.
 
-Silent voices (muted, solo'd out) are filtered for you.
+Muted and solo'd-out voices are filtered for you. The arrangement isn't: if a
+voice shouldn't play in the current section, don't return its events. Report
+the same thing through `plays(id)` (below) so the UI dims it.
 
 Optional members switch on parts of the panel:
 
@@ -115,7 +133,7 @@ Optional members switch on parts of the panel:
 
 ## The visual
 
-`createVisual(runtime)` in `main.js` builds it. Everything except `update` is
+`createVisual(runtime)` in `toy.js` builds it. Everything except `update` is
 optional:
 
 | member | |

@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test 'test/**/*.test.js'"
+    "test": "node --test 'test/**/*.test.js'",
+    "report": "node tools/report.mjs",
+    "live": "node tools/live.mjs"
   },
   "dependencies": {
     "synth-module-client": "github:jbellinghausen/synth_module_daemon#v0.1.0",

@@ -1,4 +1,5 @@
-import { CV_NOTE_MAX, CV_NOTE_MIN, VOICES, jackLabel } from '../../config.js';
+import { CV_NOTE_MAX, CV_NOTE_MIN, VOICE, VOICES, jackLabel } from '../../config.js';
+import { eventNote } from '../engine/conductor.js';
 import { trackerName } from '../music/theory.js';
 
 /**
@@ -79,7 +80,7 @@ export class Strip {
     const cell = this.cells.get(event.voice);
     if (!cell) return;
     cell.level = event.ghost ? 0.4 : 1;
-    if (event.note != null) this.showNote(event.voice, event.note);
+    this.showNote(event.voice, eventNote(event, VOICE[event.voice]));
   }
 
   setLfos(lfos) {

@@ -78,11 +78,12 @@ export class ExampleSong {
       if (this.plays(event.voice)) events.push(event);
     };
 
-    // Drums: `accent` raises the drum's CV to its accentNote.
-    if (step % 4 === 0) add({ voice: 'kick', note: VOICE.kick.note, accent: step === 0 });
+    // Drums: leave out `note` and the framework sends the voice's note, or
+    // its accentNote when `accent` is set.
+    if (step % 4 === 0) add({ voice: 'kick', accent: step === 0 });
     if (this.hatRhythm[step]) {
       const accent = step % 4 === 2;
-      add({ voice: 'hat', note: accent ? VOICE.hat.accentNote : VOICE.hat.note, accent, ghost: !accent });
+      add({ voice: 'hat', accent, ghost: !accent });
     }
 
     // Synths: `steps` is the note length in 16ths; the gate is held for

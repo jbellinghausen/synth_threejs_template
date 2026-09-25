@@ -27,8 +27,9 @@ const store = {
 };
 
 /**
- * Start a toy: a song (see src/song/example-song.js) and a function that
- * builds its visual from the three.js runtime (see src/visual/example-visual.js).
+ * Start a toy (see src/toy.js): `createSong()` returns the song (see
+ * src/song/example-song.js), `createVisual(runtime)` builds its visual from
+ * the three.js runtime (see src/visual/example-visual.js).
  *
  * Optional song features switch on parts of the panel:
  *   setKey(rootPc, scaleKey), rootPc, scaleKey     → root and scale menus
@@ -37,7 +38,8 @@ const store = {
  *   caption { title, subtitle }                    → the caption above the slots
  *   plays(id)                                      → whether a voice is in the arrangement right now
  */
-export function startApp({ song, createVisual }) {
+export function startApp({ createSong, createVisual }) {
+  const song = createSong();
   const $ = (id) => document.getElementById(id);
   const el = {
     ui: $('ui'), logo: $('logo'), status: $('status'), host: $('host'), connect: $('connect'),
